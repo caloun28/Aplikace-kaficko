@@ -24,7 +24,10 @@ async function getTypesList(apiUrl) {
 async function getPeopleList(apiUrl) {
     const res = await fetch(`${apiUrl}?cmd=getPeopleList`, {
         method: 'GET',
-        credentials: 'include'
+        credentials: 'include',
+        headers: {
+            'Authorization': AUTH_HEADER
+        }
     });
 
     if (!res.ok) throw new Error(`getPeopleList HTTP ${res.status}`);
@@ -58,7 +61,7 @@ function el(tag, attributes = {}, ...children) {
 }
 
 function renderPeople(formEl, people) {
-    const lastUser = sessionStorage.getItem('lastUser');
+    const lastUser = localStorage.getItem('lastUser');
     const lastUserCookies = getCookie('lastUserCookie');
     const fieldset = el('fieldset', { class: "people" },
         el('legend', {}, 'Uživatel')
@@ -67,7 +70,7 @@ function renderPeople(formEl, people) {
     Object.values(people).forEach(p => {
         const id = String(p.name);
         const radio = el('input', {
-            type: 'radio', class: "radio", id, name: 'user', value: String(p.ID), required: true, checked: lastUser === String(p.ID),/* checked: lastUserCookies === String(p.ID)*/
+            type: 'radio', class: "radio", id, name: 'user', value: String(p.ID), required: true, checked: lastUser === String(p.ID), checked: lastUserCookies === String(p.ID)
         });
         const label = el('label', { htmlFor: id, class: 'userLabel' }, p.name);
 
@@ -153,35 +156,60 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (sum === 0) {
             window.alert("Musite vybrat aspon 1 drink");
+            return;
         }
         console.log(JSON.stringify(payload))
 
-        await fetch(url + "?cmd=saveDrinks", {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': AUTH_HEADER
-            },
-            credentials: 'include',
-            body: JSON.stringify(payload)
-        });
+        try {
+            await fetch(url + "?cmd=saveDrinks", {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': AUTH_HEADER
+                },
+                credentials: 'include',
+                body: JSON.stringify(payload)
+            });
+        } catch (error) {
+            localStorage.setItem("offData", JSON.stringify(payload));
+        }
+
 
         const selectedUserId = UserID();
 
-        if (selectedUserId) {           
-            sessionStorage.setItem('lastUser', selectedUserId); 
+        if (selectedUserId) {
+            localStorage.setItem('lastUser', selectedUserId);
             setCookie('lastUserCookie', selectedUserId, 30);
         }
     });;
 
     console.log(navigator.cookieEnabled)
 
+
+    setInterval(async () => {
+        const data = localStorage.getItem("offData");
+
+        if (data) {
+            try {
+                const result = await fetch(url + "?cmd=saveDrinks", {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': AUTH_HEADER
+                    },
+                    credentials: 'include',
+                    body: data
+                });
+
+                if (result.ok) {
+                    localStorage.removeItem("offData");
+                }
+            } catch (error) {
+            }
+        }
+    }, 5000);
+
 });
-
-
-function checkConnection(){
-
-}
 
 function UserID() {
     const radioInputs = document.querySelectorAll(".radio");
