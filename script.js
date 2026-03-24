@@ -171,7 +171,16 @@ document.addEventListener('DOMContentLoaded', () => {
                 body: JSON.stringify(payload)
             });
         } catch (error) {
-            localStorage.setItem("offData", JSON.stringify(payload));
+
+            let offlineData = [];
+            const savedData = localStorage.getItem("offData");
+
+            if (savedData) {
+                offlineData = JSON.parse(savedData);
+            }
+
+            offlineData.push(payload);
+            localStorage.setItem("offData", JSON.stringify(offlineData));
         }
 
 
@@ -185,31 +194,57 @@ document.addEventListener('DOMContentLoaded', () => {
 
     console.log(navigator.cookieEnabled)
 
+    SendAgain();
+});
+
+function SendAgain() {
 
     setInterval(async () => {
-        const data = localStorage.getItem("offData");
+        const savedData = localStorage.getItem("offData");
 
-        if (data) {
-            try {
-                const result = await fetch(url + "?cmd=saveDrinks", {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': AUTH_HEADER
-                    },
-                    credentials: 'include',
-                    body: data
-                });
+        if (savedData) {
+            let offlineData = JSON.parse(savedData);
+            let remainData = [];
 
-                if (result.ok) {
-                    localStorage.removeItem("offData");
+            for (const data of offlineData) {
+                try {
+                    const result = await fetch(url + "?cmd=saveDrinks", {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': AUTH_HEADER
+                        },
+                        credentials: 'include',
+                        body: JSON.stringify(data)
+                    });
+
+                    const submitBtn = document.querySelector(".submit-btn");
+                    submitBtn.style.backgroundColor = "#4CAF50";
+                    submitBtn.style.color = "white";
+
+                    setTimeout(() => {
+                        submitBtn.style.backgroundColor = "";
+                        submitBtn.style.color = "";
+                    }, 3000);
+
+                    if (!result.ok) {
+                        remainData.push(data);
+                    }
+
+                } catch (error) {
+                    remainData.push(data);
                 }
-            } catch (error) {
+            }
+
+            if (remainData.length > 0) {
+                localStorage.setItem("offData", JSON.stringify(remainData))
+            } else {
+                localStorage.removeItem("offData");
             }
         }
     }, 5000);
 
-});
+}
 
 function UserID() {
     const radioInputs = document.querySelectorAll(".radio");
